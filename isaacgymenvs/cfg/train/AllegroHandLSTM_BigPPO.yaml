@@ -85,7 +85,7 @@ params:
     bounds_loss_coef: 0.0001
 
     central_value_config:
-      minibatch_size: 16384 #32768
+      minibatch_size: 128 #16384 #32768
       mini_epochs: 4
       learning_rate: 1e-4
       kl_threshold: 0.016

@@ -64,12 +64,12 @@ params:
     entropy_coef: 0.0
     truncate_grads: True
     e_clip: 0.1
-    minibatch_size: 32768
+    minibatch_size: 128
     mini_epochs: 4
     critic_coef: 4.0
     clip_value: True
-    horizon_length: 16
-    seq_length: 16
+    horizon_length: 4 #8 #16
+    seq_length: 4 #16
 
     # SampleFactory currently gives better results without bounds loss but I don't think this loss matters too much
     # bounds_loss_coef: 0.0
