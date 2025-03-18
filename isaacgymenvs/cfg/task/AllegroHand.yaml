@@ -45,10 +45,10 @@ env:
   rotEps: 0.1
   actionPenaltyScale: -0.0002
   reachGoalBonus: 250
-  fallDistance: 0.55 #0.24
+  fallDistance: 1.5 #0.55 #0.24
   fallPenalty: 0.0
 
-  objectType: "egg" # can be block, egg or pen
+  objectType: "hammer" # can be block, egg or pen
   observationType: "full_state" # can be "no_vel", "full_state"
   asymmetric_observations: False
   successTolerance: 0.1

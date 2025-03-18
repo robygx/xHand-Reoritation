@@ -321,6 +321,8 @@ class AllegroHand(VecTask):
 
         object_start_pose = gymapi.Transform()
         object_start_pose.p = gymapi.Vec3()
+        
+        #object要弄成固定位置！！（）
         object_start_pose.p.x = shadow_hand_start_pose.p.x
         # pose_dy, pose_dz = -0.2, 0.06
         pose_dy, pose_dz = -0.1, 0.12
@@ -331,13 +333,14 @@ class AllegroHand(VecTask):
         if self.object_type == "pen":
             object_start_pose.p.z = shadow_hand_start_pose.p.z + 0.02
 
-        self.goal_displacement = gymapi.Vec3(-0.2, -0.06, 0.12)
+        # self.goal_displacement = gymapi.Vec3(-0.2, -0.06, 0.12)
+        self.goal_displacement = gymapi.Vec3(-0.2, -0.06, 0.7)
         self.goal_displacement_tensor = to_torch(
             [self.goal_displacement.x, self.goal_displacement.y, self.goal_displacement.z], device=self.device)
         goal_start_pose = gymapi.Transform()
         goal_start_pose.p = object_start_pose.p + self.goal_displacement
 
-        goal_start_pose.p.z -= 0.04
+        goal_start_pose.p.z -=0.04 
 
         # compute aggregate size
         max_agg_bodies = self.num_shadow_hand_bodies + 2 + 1
@@ -372,11 +375,11 @@ class AllegroHand(VecTask):
             )
 
         # 桌子初始姿态
-        table_start_pose = gymapi.Transform()
-        table_start_pose.p = gymapi.Vec3(shadow_hand_start_pose.p.x-0.5, shadow_hand_start_pose.p.y-0.5, -0.5)
-        # 绕 X 轴逆时针旋转 90 度（即 π/2 弧度）
-        import math
-        table_start_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), math.pi / 2)
+        # table_start_pose = gymapi.Transform()
+        # table_start_pose.p = gymapi.Vec3(shadow_hand_start_pose.p.x-0.5, shadow_hand_start_pose.p.y-0.5, -0.5)
+        # # 绕 X 轴逆时针旋转 90 度（即 π/2 弧度）
+        # import math
+        # table_start_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), math.pi / 2)
 
 
 
@@ -402,9 +405,20 @@ class AllegroHand(VecTask):
             # add object
             # object_handle = self.gym.create_actor(env_ptr, object_asset, object_start_pose, "object", i, 0, 0)
             object_handle = self.gym.create_actor(env_ptr, object_asset, object_start_pose, "object", i, 0, 0)
-            self.object_init_state.append([object_start_pose.p.x, object_start_pose.p.y, object_start_pose.p.z,
-                                           object_start_pose.r.x, object_start_pose.r.y, object_start_pose.r.z, object_start_pose.r.w,
-                                           0, 0, 0, 0, 0, 0])
+
+
+            # 手要改成固定位置！！！！
+            # self.object_init_state.append([object_start_pose.p.x, object_start_pose.p.y, object_start_pose.p.z,
+            #                                object_start_pose.r.x, object_start_pose.r.y, object_start_pose.r.z, object_start_pose.r.w,
+            #                                0, 0, 0, 0, 0, 0])
+
+
+            self.object_init_state.append([-0.113, -0.360, 0.011,
+                                0.645 , 0.295, -0.625, 0.326,
+                                0, 0, 0, 0, 0, 0])
+            
+
+
             object_idx = self.gym.get_actor_index(env_ptr, object_handle, gymapi.DOMAIN_SIM)
             self.object_indices.append(object_idx)
 
@@ -417,8 +431,8 @@ class AllegroHand(VecTask):
             self.goal_object_indices.append(goal_object_idx)
 
             # table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i + 2*self.num_envs, 0, 0)
-            table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i + 2*self.num_envs, 0, 0)
-            self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.8, 0.8, 0.8))
+            # table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i + 2*self.num_envs, 0, 0)
+            # self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.8, 0.8, 0.8))
 
             if self.object_type != "block":
                 self.gym.set_rigid_body_color(
@@ -427,9 +441,9 @@ class AllegroHand(VecTask):
                     env_ptr, goal_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.6, 0.72, 0.98))
                 
 
-            # 获取桌子的索引并记录到 table_indices 中
-            table_idx = self.gym.get_actor_index(env_ptr, table_handle, gymapi.DOMAIN_SIM)
-            self.table_indices.append(table_idx)
+            # # 获取桌子的索引并记录到 table_indices 中
+            # table_idx = self.gym.get_actor_index(env_ptr, table_handle, gymapi.DOMAIN_SIM)
+            # self.table_indices.append(table_idx)
 
 
             if self.aggregate_mode > 0:
@@ -833,14 +847,14 @@ class AllegroHand(VecTask):
 
             for i in range(self.num_envs):
                 # 原有的目标物体和操作对象坐标轴绘制代码
-                targetx = (self.goal_pos[i] + quat_apply(self.goal_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
-                targety = (self.goal_pos[i] + quat_apply(self.goal_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
-                targetz = (self.goal_pos[i] + quat_apply(self.goal_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                # targetx = (self.goal_pos[i] + quat_apply(self.goal_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                # targety = (self.goal_pos[i] + quat_apply(self.goal_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                # targetz = (self.goal_pos[i] + quat_apply(self.goal_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
 
-                p0 = self.goal_pos[i].cpu().numpy() + self.goal_displacement_tensor.cpu().numpy()
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], targetx[0], targetx[1], targetx[2]], [0.85, 0.1, 0.1])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], targety[0], targety[1], targety[2]], [0.1, 0.85, 0.1])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], targetz[0], targetz[1], targetz[2]], [0.1, 0.1, 0.85])
+                # p0 = self.goal_pos[i].cpu().numpy() + self.goal_displacement_tensor.cpu().numpy()
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], targetx[0], targetx[1], targetx[2]], [0.85, 0.1, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], targety[0], targety[1], targety[2]], [0.1, 0.85, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], targetz[0], targetz[1], targetz[2]], [0.1, 0.1, 0.85])
 
                 objectx = (self.object_pos[i] + quat_apply(self.object_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
                 objecty = (self.object_pos[i] + quat_apply(self.object_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
@@ -873,32 +887,32 @@ class AllegroHand(VecTask):
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [hand_origin[0], hand_origin[1], hand_origin[2], hand_z_axis_end[0], hand_z_axis_end[1], hand_z_axis_end[2]], [0.1, 0.1, 0.85])  # Z 轴，蓝色
                 
 
-                # 获取桌子的位置和姿态
-                table_root_state = self.root_state_tensor[self.table_indices[i]]
-                table_pos = table_root_state[0:3]
-                table_rot = table_root_state[3:7]
+                # # 获取桌子的位置和姿态
+                # table_root_state = self.root_state_tensor[self.table_indices[i]]
+                # table_pos = table_root_state[0:3]
+                # table_rot = table_root_state[3:7]
 
-                # 定义坐标轴的长度
-                axis_length = 0.2
+                # # 定义坐标轴的长度
+                # axis_length = 0.2
 
-                # 计算桌子坐标轴的端点位置
-                table_x_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([axis_length, 0, 0], device=self.device))).cpu().numpy()
-                table_y_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([0, axis_length, 0], device=self.device))).cpu().numpy()
-                table_z_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([0, 0, axis_length], device=self.device))).cpu().numpy()
+                # # 计算桌子坐标轴的端点位置
+                # table_x_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([axis_length, 0, 0], device=self.device))).cpu().numpy()
+                # table_y_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([0, axis_length, 0], device=self.device))).cpu().numpy()
+                # table_z_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([0, 0, axis_length], device=self.device))).cpu().numpy()
 
-                # 获取桌子的原点位置
-                table_origin = table_pos.cpu().numpy()
+                # # 获取桌子的原点位置
+                # table_origin = table_pos.cpu().numpy()
 
-                # 绘制桌子的坐标轴（红色 X 轴，绿色 Y 轴，蓝色 Z 轴）
-                self.gym.add_lines(self.viewer, self.envs[i], 1, 
-                    [table_origin[0], table_origin[1], table_origin[2], table_x_axis_end[0], table_x_axis_end[1], table_x_axis_end[2]], 
-                    [0.85, 0.1, 0.1])  # X 轴
-                self.gym.add_lines(self.viewer, self.envs[i], 1, 
-                    [table_origin[0], table_origin[1], table_origin[2], table_y_axis_end[0], table_y_axis_end[1], table_y_axis_end[2]], 
-                    [0.1, 0.85, 0.1])  # Y 轴
-                self.gym.add_lines(self.viewer, self.envs[i], 1, 
-                    [table_origin[0], table_origin[1], table_origin[2], table_z_axis_end[0], table_z_axis_end[1], table_z_axis_end[2]], 
-                    [0.1, 0.1, 0.85])  # Z 轴
+                # # 绘制桌子的坐标轴（红色 X 轴，绿色 Y 轴，蓝色 Z 轴）
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, 
+                #     [table_origin[0], table_origin[1], table_origin[2], table_x_axis_end[0], table_x_axis_end[1], table_x_axis_end[2]], 
+                #     [0.85, 0.1, 0.1])  # X 轴
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, 
+                #     [table_origin[0], table_origin[1], table_origin[2], table_y_axis_end[0], table_y_axis_end[1], table_y_axis_end[2]], 
+                #     [0.1, 0.85, 0.1])  # Y 轴
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, 
+                #     [table_origin[0], table_origin[1], table_origin[2], table_z_axis_end[0], table_z_axis_end[1], table_z_axis_end[2]], 
+                #     [0.1, 0.1, 0.85])  # Z 轴
 
 #####################################################################
 ###=========================jit functions=========================###
