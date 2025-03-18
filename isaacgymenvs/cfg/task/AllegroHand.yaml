@@ -6,7 +6,7 @@ physics_engine: ${..physics_engine}
 # if given, will override the device setting in gym.
 env: 
   numEnvs: ${resolve_default:16384,${...num_envs}}
-  envSpacing: 0.75
+  envSpacing: 1.20 #0.75
   episodeLength: 600
   enableDebugVis: True  #False
   aggregateMode: 1
@@ -45,10 +45,10 @@ env:
   rotEps: 0.1
   actionPenaltyScale: -0.0002
   reachGoalBonus: 250
-  fallDistance: 0.24
+  fallDistance: 0.55 #0.24
   fallPenalty: 0.0
 
-  objectType: "egg" # can be block, egg or pen
+  objectType: "hammer" # can be block, egg or pen
   observationType: "full_state" # can be "no_vel", "full_state"
   asymmetric_observations: False
   successTolerance: 0.1
@@ -62,6 +62,8 @@ env:
     assetFileNameBlock: "urdf/objects/cube_multicolor_allegro.urdf"
     assetFileNameEgg: "mjcf/open_ai_assets/hand/egg.xml"
     assetFileNamePen: "mjcf/open_ai_assets/hand/pen.xml"
+    assetFileNameHammer: "urdf/kuka_allegro_description/hammer_description.urdf"
+    assetFileNameHand: "urdf/kuka_allegro_description/xhand_right.urdf"
 
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False

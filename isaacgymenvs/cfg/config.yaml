@@ -60,6 +60,7 @@ headless: False
 # set default task and default training config based on task
 defaults:
   - task: Ant
+  #训练算法配置：根据 train 参数，会加载对应的训练算法配置文件。例如，如果 train: ${task}PPO，则会加载 cfg/train/CartpolePPO.yaml 文件（假设任务名称为 Cartpole）。
   - train: ${task}PPO
   - pbt: no_pbt
   - override hydra/job_logging: disabled

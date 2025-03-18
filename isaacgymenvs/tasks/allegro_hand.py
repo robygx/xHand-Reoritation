@@ -83,20 +83,24 @@ class AllegroHand(VecTask):
         self.av_factor = self.cfg["env"].get("averFactor", 0.1)
 
         self.object_type = self.cfg["env"]["objectType"]
-        assert self.object_type in ["block", "egg", "pen"]
+        assert self.object_type in ["block", "egg", "pen","hammer","hand"]
 
         self.ignore_z = (self.object_type == "pen")
 
         self.asset_files_dict = {
             "block": "urdf/objects/cube_multicolor.urdf",
             "egg": "mjcf/open_ai_assets/hand/egg.xml",
-            "pen": "mjcf/open_ai_assets/hand/pen.xml"
+            "pen": "mjcf/open_ai_assets/hand/pen.xml",
+            "hammer":"urdf/kuka_allegro_description/hammer_description.urdf",
+            "hand":"urdf/kuka_allegro_description/xhand_right.urdf"
         }
 
         if "asset" in self.cfg["env"]:
             self.asset_files_dict["block"] = self.cfg["env"]["asset"].get("assetFileNameBlock", self.asset_files_dict["block"])
             self.asset_files_dict["egg"] = self.cfg["env"]["asset"].get("assetFileNameEgg", self.asset_files_dict["egg"])
             self.asset_files_dict["pen"] = self.cfg["env"]["asset"].get("assetFileNamePen", self.asset_files_dict["pen"])
+            self.asset_files_dict["hammer"] = self.cfg["env"]["asset"].get("assetFileNameHammer", self.asset_files_dict["hammer"])
+            self.asset_files_dict["hand"] = self.cfg["env"]["asset"].get("assetFileNameHand", self.asset_files_dict["hand"])
 
         # can be "full_no_vel", "full", "full_state"
         self.obs_type = self.cfg["env"]["observationType"]
@@ -198,6 +202,9 @@ class AllegroHand(VecTask):
 
         self.rb_forces = torch.zeros((self.num_envs, self.num_bodies, 3), dtype=torch.float, device=self.device)
 
+
+ 
+
     def create_sim(self):
         self.dt = self.sim_params.dt
         self.up_axis_idx = 2 # index of up axis: Y=1, Z=2
@@ -224,6 +231,9 @@ class AllegroHand(VecTask):
             allegro_hand_asset_file = self.cfg["env"]["asset"].get("assetFileName", allegro_hand_asset_file)
 
         object_asset_file = self.asset_files_dict[self.object_type]
+        print(f"asset_root: {asset_root}")
+        print(f"allegro_hand_asset_file: {allegro_hand_asset_file}")
+
 
         # load shadow hand_ asset
         asset_options = gymapi.AssetOptions()
@@ -297,7 +307,7 @@ class AllegroHand(VecTask):
 
         ##修改旋转！！！！
         shadow_hand_start_pose = gymapi.Transform()
-        shadow_hand_start_pose.p = gymapi.Vec3(*get_axis_params(0.5, self.up_axis_idx))
+        shadow_hand_start_pose.p = gymapi.Vec3(*get_axis_params(0.8, self.up_axis_idx))
         # 原有的绕 Y 轴旋转 180 度和绕 X 轴旋转 0.47 * np.pi 弧度的旋转
         rotation_without_z = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.pi) * gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), 0.47 * np.pi)
 
@@ -330,8 +340,8 @@ class AllegroHand(VecTask):
         goal_start_pose.p.z -= 0.04
 
         # compute aggregate size
-        max_agg_bodies = self.num_shadow_hand_bodies + 2
-        max_agg_shapes = self.num_shadow_hand_shapes + 2
+        max_agg_bodies = self.num_shadow_hand_bodies + 2 + 1
+        max_agg_shapes = self.num_shadow_hand_shapes + 2 + 1
 
         self.allegro_hands = []
         self.envs = []
@@ -343,10 +353,32 @@ class AllegroHand(VecTask):
         self.fingertip_indices = []
         self.object_indices = []
         self.goal_object_indices = []
+        self.table_indices = []  # 初始化 table_indices 属性   
 
         shadow_hand_rb_count = self.gym.get_asset_rigid_body_count(allegro_hand_asset)
         object_rb_count = self.gym.get_asset_rigid_body_count(object_asset)
         self.object_rb_handles = list(range(shadow_hand_rb_count, shadow_hand_rb_count + object_rb_count))
+
+
+
+        # 加载桌子资产
+        table_asset_options = gymapi.AssetOptions()
+        table_asset_options.disable_gravity = True
+        table_asset = self.gym.load_asset(
+                self.sim,
+                "/home/hitcrt/ros2_ws/src/table_description/urdf",  # 绝对路径
+                "table_description.urdf",  # 模型文件名
+                table_asset_options
+            )
+
+        # 桌子初始姿态
+        table_start_pose = gymapi.Transform()
+        table_start_pose.p = gymapi.Vec3(shadow_hand_start_pose.p.x-0.5, shadow_hand_start_pose.p.y-0.5, -0.5)
+        # 绕 X 轴逆时针旋转 90 度（即 π/2 弧度）
+        import math
+        table_start_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), math.pi / 2)
+
+
 
         for i in range(self.num_envs):
             # create env instance
@@ -358,6 +390,7 @@ class AllegroHand(VecTask):
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 
             # add hand - collision filter = -1 to use asset collision filters set in mjcf loader
+            # allegro_hand_actor = self.gym.create_actor(env_ptr, allegro_hand_asset, shadow_hand_start_pose, "hand", i, -1, 0)
             allegro_hand_actor = self.gym.create_actor(env_ptr, allegro_hand_asset, shadow_hand_start_pose, "hand", i, -1, 0)
             self.hand_start_states.append([shadow_hand_start_pose.p.x, shadow_hand_start_pose.p.y, shadow_hand_start_pose.p.z,
                                            shadow_hand_start_pose.r.x, shadow_hand_start_pose.r.y, shadow_hand_start_pose.r.z, shadow_hand_start_pose.r.w,
@@ -367,6 +400,7 @@ class AllegroHand(VecTask):
             self.hand_indices.append(hand_idx)
 
             # add object
+            # object_handle = self.gym.create_actor(env_ptr, object_asset, object_start_pose, "object", i, 0, 0)
             object_handle = self.gym.create_actor(env_ptr, object_asset, object_start_pose, "object", i, 0, 0)
             self.object_init_state.append([object_start_pose.p.x, object_start_pose.p.y, object_start_pose.p.z,
                                            object_start_pose.r.x, object_start_pose.r.y, object_start_pose.r.z, object_start_pose.r.w,
@@ -374,16 +408,29 @@ class AllegroHand(VecTask):
             object_idx = self.gym.get_actor_index(env_ptr, object_handle, gymapi.DOMAIN_SIM)
             self.object_indices.append(object_idx)
 
+
+
+
             # add goal object
             goal_handle = self.gym.create_actor(env_ptr, goal_asset, goal_start_pose, "goal_object", i + self.num_envs, 0, 0)
             goal_object_idx = self.gym.get_actor_index(env_ptr, goal_handle, gymapi.DOMAIN_SIM)
             self.goal_object_indices.append(goal_object_idx)
+
+            # table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i + 2*self.num_envs, 0, 0)
+            table_handle = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i + 2*self.num_envs, 0, 0)
+            self.gym.set_rigid_body_color(env_ptr, table_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.8, 0.8, 0.8))
 
             if self.object_type != "block":
                 self.gym.set_rigid_body_color(
                     env_ptr, object_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.6, 0.72, 0.98))
                 self.gym.set_rigid_body_color(
                     env_ptr, goal_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.6, 0.72, 0.98))
+                
+
+            # 获取桌子的索引并记录到 table_indices 中
+            table_idx = self.gym.get_actor_index(env_ptr, table_handle, gymapi.DOMAIN_SIM)
+            self.table_indices.append(table_idx)
+
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
@@ -406,6 +453,8 @@ class AllegroHand(VecTask):
         self.hand_indices = to_torch(self.hand_indices, dtype=torch.long, device=self.device)
         self.object_indices = to_torch(self.object_indices, dtype=torch.long, device=self.device)
         self.goal_object_indices = to_torch(self.goal_object_indices, dtype=torch.long, device=self.device)
+
+
 
     def compute_reward(self, actions):
         self.rew_buf[:], self.reset_buf[:], self.reset_goal_buf[:], self.progress_buf[:], self.successes[:], self.consecutive_successes[:] = compute_hand_reward(
@@ -822,6 +871,34 @@ class AllegroHand(VecTask):
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [hand_origin[0], hand_origin[1], hand_origin[2], hand_x_axis_end[0], hand_x_axis_end[1], hand_x_axis_end[2]], [0.85, 0.1, 0.1])  # X 轴，红色
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [hand_origin[0], hand_origin[1], hand_origin[2], hand_y_axis_end[0], hand_y_axis_end[1], hand_y_axis_end[2]], [0.1, 0.85, 0.1])  # Y 轴，绿色
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [hand_origin[0], hand_origin[1], hand_origin[2], hand_z_axis_end[0], hand_z_axis_end[1], hand_z_axis_end[2]], [0.1, 0.1, 0.85])  # Z 轴，蓝色
+                
+
+                # 获取桌子的位置和姿态
+                table_root_state = self.root_state_tensor[self.table_indices[i]]
+                table_pos = table_root_state[0:3]
+                table_rot = table_root_state[3:7]
+
+                # 定义坐标轴的长度
+                axis_length = 0.2
+
+                # 计算桌子坐标轴的端点位置
+                table_x_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([axis_length, 0, 0], device=self.device))).cpu().numpy()
+                table_y_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([0, axis_length, 0], device=self.device))).cpu().numpy()
+                table_z_axis_end = (table_pos + quat_apply(table_rot, torch.tensor([0, 0, axis_length], device=self.device))).cpu().numpy()
+
+                # 获取桌子的原点位置
+                table_origin = table_pos.cpu().numpy()
+
+                # 绘制桌子的坐标轴（红色 X 轴，绿色 Y 轴，蓝色 Z 轴）
+                self.gym.add_lines(self.viewer, self.envs[i], 1, 
+                    [table_origin[0], table_origin[1], table_origin[2], table_x_axis_end[0], table_x_axis_end[1], table_x_axis_end[2]], 
+                    [0.85, 0.1, 0.1])  # X 轴
+                self.gym.add_lines(self.viewer, self.envs[i], 1, 
+                    [table_origin[0], table_origin[1], table_origin[2], table_y_axis_end[0], table_y_axis_end[1], table_y_axis_end[2]], 
+                    [0.1, 0.85, 0.1])  # Y 轴
+                self.gym.add_lines(self.viewer, self.envs[i], 1, 
+                    [table_origin[0], table_origin[1], table_origin[2], table_z_axis_end[0], table_z_axis_end[1], table_z_axis_end[2]], 
+                    [0.1, 0.1, 0.85])  # Z 轴
 
 #####################################################################
 ###=========================jit functions=========================###

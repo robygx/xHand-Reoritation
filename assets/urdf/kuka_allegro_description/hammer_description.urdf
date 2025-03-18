@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="hammer_description">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="5.87814149057009E-08 -0.00373943952625764 -0.204711899231881"
+        rpy="0 0 0" />
+      <mass
+        value="0.373204534702099" />
+      <inertia
+        ixx="0.000361241119434807"
+        ixy="3.78490835386894E-10"
+        ixz="7.94626960804098E-11"
+        iyy="0.000238172704883444"
+        iyz="-1.84459384765409E-06"
+        izz="0.000144778352990432" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+</robot>
